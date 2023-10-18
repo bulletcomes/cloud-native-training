@@ -1,0 +1,77 @@
+# GitHub Action to build and deploy the user demo to Compliant Kubernetes
+#
+# This file serves as an example on how to integrate GitHub Actions with
+# Compliant Kubernetes for push-style Continuous Delivery.
+#
+# This action needs container registry credentials and Kubernetes credentials.
+#
+# For the container registry credentials, create a Robot account, as described
+# in the link below. Replace env.DOCKER_USER below and create an environment
+# secret called DOCKER_PASSWORD.
+#
+# For the Kubernetes credentials, create a ServiceAccount with
+# CI/CD-related permissions. Copy-paste-able code can be found in the document
+# below. Once you created `kubeconfig_ci_cd.yaml`, create an environment secret
+# called KUBECONFIG_CONTENTS_B64 with the output of
+# `base64 kubeconfig_ci_cd.yaml`.
+#
+# NOTE! This action assumes that you will use `git tag` to trigger deployment.
+# In particular, we use the git tag as the container image tag.
+# Change on.push and env.TAG if your change management strategy is different.
+#
+# Further reading:
+# - https://goharbor.io/docs/2.4.0/working-with-projects/project-configuration/create-robot-accounts/
+# - https://elastisys.io/compliantkubernetes/user-guide/ci-cd/#push-style-cicd
+# - https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#environment-secrets
+
+name: app-deploy
+
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  app-deploy:
+    name: Deploy user-demo
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Setup KUBECONFIG
+      env:
+        KUBECONFIG_CONTENTS_B64: ${{ secrets.KUBECONFIG_CONTENTS_B64 }}
+      run: |-
+        mkdir -p ~/.kube
+        echo $KUBECONFIG_CONTENTS_B64 | base64 -d --ignore-garbage > ~/.kube/config
+        chmod 0400 ~/.kube/config
+
+    - name: Login to container registry
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_USER: ${{ secrets.DOCKER_USER }}
+        DOMAIN: ${{ secrets.DOMAIN }}
+      run: |-
+        echo $DOCKER_PASSWORD \
+          | docker login --username $DOCKER_USER --password-stdin harbor.$DOMAIN
+
+    - name: Build and push container image
+      working-directory: user-demo
+      env:
+        DOMAIN: ${{ secrets.DOMAIN }}
+        REGISTRY_PROJECT: ${{ secrets.REGISTRY_PROJECT }}
+      run: |-
+        docker build -t harbor.$DOMAIN/$REGISTRY_PROJECT/ck8s-user-demo:$TAG .
+        docker push harbor.$DOMAIN/$REGISTRY_PROJECT/ck8s-user-demo:$TAG
+
+    - name: Deploy
+      env:
+        DOMAIN: ${{ secrets.DOMAIN }}
+      run: |-
+        kubectl -n training set image deploy/ck8s-user-demo ck8s-user-demo=harbor.$DOMAIN/training/ck8s-user-demo:$TAG

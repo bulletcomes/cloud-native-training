@@ -74,4 +74,4 @@ jobs:
       env:
         DOMAIN: ${{ secrets.DOMAIN }}
       run: |-
-        kubectl -n training set image deploy/ck8s-user-demo ck8s-user-demo=harbor.$DOMAIN/training/ck8s-user-demo:$TAG
+        kubectl -n cicd set image deploy/ck8s-user-demo ck8s-user-demo=harbor.$DOMAIN/training/ck8s-user-demo:$TAG

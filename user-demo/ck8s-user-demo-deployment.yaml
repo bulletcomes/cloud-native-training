@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: ck8s-user-demo
+  name: ck8s-user-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ck8s-user-demo
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: ck8s-user-demo
+    spec:
+      containers:
+      - image: harbor.production.drt-ck8s.com/user-demo/ck8s-user-demo:v3
+        name: ck8s-user-demo
+        resources:
+          limits:         # Add this
+            cpu: 100m     #
+            memory: 128Mi #
+          requests:       #
+            cpu: 100m     #
+            memory: 128Mi #
+status: {}
